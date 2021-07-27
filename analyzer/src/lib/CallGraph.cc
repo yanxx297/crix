@@ -44,6 +44,7 @@ unordered_map<size_t, set<size_t>> CallGraphPass::typeConfineMap;
 unordered_map<size_t, set<size_t>> CallGraphPass::typeTransitMap;
 set<size_t> CallGraphPass::typeEscapeSet;
 const DataLayout *CurrentLayout;
+
 // Find targets of indirect calls based on type analysis: as long as
 // the number and type of parameters of a function matches with the
 // ones of the callsite, we say the function is a possible target of
@@ -634,6 +635,8 @@ bool CallGraphPass::doModulePass(Module *M) {
 			// Map callsite to possible callees.
 			if (CallInst *CI = dyn_cast<CallInst>(&*i)) {
 
+
+
 				CallSite CS(CI);
 				FuncSet FS;
 				Function *CF = CI->getCalledFunction();
@@ -646,8 +649,12 @@ bool CallGraphPass::doModulePass(Module *M) {
 					findCalleesWithType(CI, FS);
 #endif
 
-					for (Function *Callee : FS)
-						Ctx->Callers[Callee].insert(CI);
+					for (Function *Callee : FS){
+					    Ctx->Callers[Callee].insert(CI);
+					    StringRef FName = Callee->getName();
+					    if (!FName.startswith("llvm."))
+						OP<<"get callee name "<<FName.str()<<"\n";
+					}
 
 					// Save called values for future uses.
 					Ctx->IndirectCallInsts.push_back(CI);
@@ -659,6 +666,8 @@ bool CallGraphPass::doModulePass(Module *M) {
 						// Call external functions
 						if (CF->empty()) {
 							StringRef FName = CF->getName();
+							if (!FName.startswith("llvm."))
+							    OP<<"get callee name "<<FName.str()<<"\n";
 							if (FName.startswith("SyS_"))
 								FName = StringRef("sys_" + FName.str().substr(4));
 							if (Function *GF = Ctx->GlobalFuncs[FName])

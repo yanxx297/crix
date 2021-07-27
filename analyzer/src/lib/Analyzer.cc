@@ -126,6 +126,24 @@ void PrintResults(GlobalContext *GCtx) {
 	OP<<"# Number of conditional statements: \t\t"<<GCtx->NumCondStatements<<"\n";
 }
 
+void addNodeGraphml(Function *node, int &idx, ofstream &cgout, unordered_map<Function *, int> &nodes){
+    if(nodes.find(node) == nodes.end()){
+	nodes[node] = idx;
+	StringRef funcname = node->getName();
+	StringRef filename = "";
+	MDNode *metadata = node->getMetadata(0);
+	if (metadata){
+	    DISubprogram *subProgram= dyn_cast<DISubprogram>(metadata);
+	    filename = subProgram->getFilename(); 
+	}
+	cgout<<"<node id=\"n"<<idx<<"\">\n";
+	cgout<<"\t<data key=\"d0\">"<<funcname.str()<<"</data>\"\n";
+	cgout<<"\t<data key=\"d1\">"<<filename.str()<<"</data>\"\n";
+	cgout<<"</node>\n";
+	idx ++;
+    }
+}
+
 int main(int argc, char **argv) {
 
 	// Print a stack trace if we signal out.
@@ -165,9 +183,39 @@ int main(int argc, char **argv) {
 	TIPass.run(GlobalCtx.Modules);
 	TIPass.BuildTypeStructMap();
 
+	ofstream cgout; 
+	cgout.open("callgraph.graphml");
+	cgout<<"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
+	cgout<<"<graphml xmlns=\"http://graphml.graphdrawing.org/xmlns\">\n";
+	cgout<<"<key id=\"d0\" for=\"node\" attr.name=\"funcname\" attr.type=\"string\"/>\n";
+	cgout<<"<key id=\"d1\" for=\"node\" attr.name=\"filename\" attr.type=\"string\"/>\n";
+	cgout<<"<graph id=\"G\" edgedefault=\"directed\">\n";
+
 	// Build global callgraph.
 	CallGraphPass CGPass(&GlobalCtx);
 	CGPass.run(GlobalCtx.Modules);
+
+	int ncnt = 0;
+	unordered_map<Function *, int> nodes;
+
+	for(DenseMap<CallInst *, FuncSet>::iterator it = GlobalCtx.Callees.begin(); it != GlobalCtx.Callees.end(); ++it){
+	    Function *caller = it->first->getFunction();
+	    StringRef callerName = caller->getName();
+	    if (!callerName.startswith("llvm.")){
+		addNodeGraphml(caller, ncnt, cgout, nodes);
+		for (Function* callee: it->second){
+		    if(nodes.find(callee) == nodes.end())
+			addNodeGraphml(callee, ncnt, cgout, nodes);
+		    int dst = nodes[callee];
+		    int src = nodes[caller];
+		    cgout<<"<edge source=\"n"<<src<<"\" target=\"n"<<dst<<"\"/>\n";
+		}
+	    }
+	}
+	cgout<<"</graph>\n";
+	cgout<<"</graphml>\n";
+	cgout.close();
+	return 0;
 
 	// Identify sanity checks
 	if (SecurityChecks) {
