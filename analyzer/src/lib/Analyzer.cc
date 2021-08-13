@@ -40,6 +40,9 @@ using namespace llvm;
 cl::list<string> InputFilenames(
     cl::Positional, cl::OneOrMore, cl::desc("<input bitcode files>"));
 
+cl::opt<string> SrcPath(
+    "src", cl::desc("<Linux kernel code root directory>"), cl::init(""));
+
 cl::opt<unsigned> VerboseLevel(
     "verbose-level", cl::desc("Print information at which verbose level"),
     cl::init(0));
@@ -136,9 +139,12 @@ void addNodeGraphml(Function *node, int &idx, ofstream &cgout, unordered_map<Fun
 	    DISubprogram *subProgram= dyn_cast<DISubprogram>(metadata);
 	    filename = subProgram->getFilename(); 
 	}
+	size_t pos = filename.find(SrcPath);
+
 	cgout<<"<node id=\"n"<<idx<<"\">\n";
-	cgout<<"\t<data key=\"d0\">"<<funcname.str()<<"</data>\"\n";
-	cgout<<"\t<data key=\"d1\">"<<filename.str()<<"</data>\"\n";
+	cgout<<"\t<data key=\"d0\">"<<funcname.str()<<"</data>\n";
+	cgout<<"\t<data key=\"d1\">"<<filename.substr(pos+SrcPath.size()).str()<<"</data>\n";
+	cgout<<"\t<data key=\"d2\">false</data>\n";
 	cgout<<"</node>\n";
 	idx ++;
     }
@@ -189,6 +195,7 @@ int main(int argc, char **argv) {
 	cgout<<"<graphml xmlns=\"http://graphml.graphdrawing.org/xmlns\">\n";
 	cgout<<"<key id=\"d0\" for=\"node\" attr.name=\"funcname\" attr.type=\"string\"/>\n";
 	cgout<<"<key id=\"d1\" for=\"node\" attr.name=\"filename\" attr.type=\"string\"/>\n";
+	cgout<<"<key id=\"d2\" for=\"node\" attr.name=\"covered\" attr.type=\"boolean\"/>\n";
 	cgout<<"<graph id=\"G\" edgedefault=\"directed\">\n";
 
 	// Build global callgraph.
