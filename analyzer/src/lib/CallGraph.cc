@@ -418,9 +418,8 @@ Value *CallGraphPass:: nextLayerBaseType(Value *V, Type * &BTy,
 
 	// Two ways to get the next layer type: GetElementPtrInst and
 	// LoadInst
-	// Case 1: GetElementPtrInst
-	if (GetElementPtrInst *GEP 
-			= dyn_cast<GetElementPtrInst>(V)) {
+	// Case 1: GetElementPtrInst and ConstantExpr
+	if (auto GEP = dyn_cast<GEPOperator>(V)) {
 		Type *PTy = GEP->getPointerOperand()->getType();
 		Type *Ty = PTy->getPointerElementType();
 		if ((Ty->isStructTy() || Ty->isArrayTy() || Ty->isVectorTy()) 
